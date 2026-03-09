@@ -31,6 +31,8 @@ A fast, clean, fully-typed Python framework for building Telegram bots. Supports
   - [Inline Queries](#inline-queries)
   - [Chat Member Events](#chat-member-events)
   - [Polls & Quiz](#polls--quiz)
+  - [Location & Venue](#location--venue)
+  - [Payments](#payments)
   - [Parse Mode & HTML Formatting](#parse-mode--html-formatting)
   - [Async Mode](#async-mode)
   - [Webhook Mode](#webhook-mode)
@@ -538,6 +540,90 @@ def on_poll(msg):
 
 ---
 
+### Location & Venue
+
+Send a point on the map:
+
+```python
+@rt.message("/location")
+def cmd_location(msg):
+    bot.send_location(chat_id=msg.chat.id, latitude=55.7558, longitude=37.6173)
+```
+
+Send a named place with address:
+
+```python
+@rt.message("/venue")
+def cmd_venue(msg):
+    bot.send_venue(
+        chat_id=msg.chat.id,
+        latitude=55.7558,
+        longitude=37.6173,
+        title="Красная площадь",
+        address="Красная площадь, Москва",
+    )
+```
+
+Send a live location that updates in real time:
+
+```python
+bot.send_location(chat_id=msg.chat.id, latitude=55.7558, longitude=37.6173, live_period=300)
+```
+
+Handle incoming location and venue messages from users:
+
+```python
+@rt.message(F.location)
+def on_location(msg):
+    loc = msg.location
+    msg.answer(f"Получена точка: {loc.latitude}, {loc.longitude}")
+
+@rt.message(F.venue)
+def on_venue(msg):
+    msg.answer(f"Получено место: {msg.venue.title} — {msg.venue.address}")
+```
+
+---
+
+### Payments
+
+Send an invoice:
+
+```python
+from gramix import LabeledPrice
+
+@rt.message("/buy")
+def cmd_buy(msg):
+    bot.send_invoice(
+        chat_id=msg.chat.id,
+        title="Premium доступ",
+        description="30 дней Premium.",
+        payload="premium_30d",
+        provider_token="YOUR_PROVIDER_TOKEN",
+        currency="RUB",
+        prices=[LabeledPrice(label="Premium", amount=29900)],
+    )
+```
+
+Confirm the payment before it is charged (required by Telegram):
+
+```python
+@rt.pre_checkout_query()
+def on_pre_checkout(query: PreCheckoutQuery):
+    bot.answer_pre_checkout_query(query.id, ok=True)
+```
+
+Handle successful payments:
+
+```python
+@rt.successful_payment()
+def on_payment(msg):
+    p = msg.successful_payment
+    msg.answer(f"Оплата прошла! {p.amount_decimal} {p.currency}")
+```
+
+---
+
 ### Parse Mode & HTML Formatting
 
 Set `parse_mode` once at `Bot` initialization — all `answer()`, `reply()`, `edit()`, `send_photo()`, and `send_video()` calls inherit it automatically:
@@ -679,6 +765,12 @@ async def async_shutdown():
 | `answer_inline_query(inline_query_id, results)` | Answer an inline query. |
 | `send_poll(chat_id, question, options, *, is_anonymous, poll_type, allows_multiple_answers, correct_option_id, explanation, open_period, close_date, is_closed, keyboard)` | Send a regular poll or quiz. |
 | `stop_poll(chat_id, message_id, *, keyboard)` | Close an open poll and return the final `Poll` object. |
+| `send_location(chat_id, latitude, longitude, *, horizontal_accuracy, live_period, heading, proximity_alert_radius, keyboard)` | Send a point on the map. Pass `live_period` for a live location. |
+| `send_venue(chat_id, latitude, longitude, title, address, *, foursquare_id, google_place_id, keyboard)` | Send a named place with address. |
+| `edit_message_live_location(chat_id, message_id, latitude, longitude)` | Update a live location. |
+| `stop_message_live_location(chat_id, message_id)` | Stop a live location broadcast. |
+| `send_invoice(chat_id, title, description, payload, provider_token, currency, prices, *, keyboard)` | Send a payment invoice. |
+| `answer_pre_checkout_query(pre_checkout_query_id, ok, *, error_message)` | Confirm or reject a pre-checkout query. |
 | `set_webhook(url)` | Register a webhook URL. |
 | `delete_webhook()` | Remove the webhook. |
 | `get_webhook_info()` | Get current webhook status. |
@@ -711,6 +803,8 @@ async def async_shutdown():
 | `F.channel` | Chat type is channel |
 | `F.poll` | Message contains a forwarded poll |
 | `F.quiz` | Message contains a forwarded quiz |
+| `F.location` | Message contains a location |
+| `F.venue` | Message contains a venue |
 
 ---
 

@@ -5,6 +5,39 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.1.7] — 2026-03-09
+
+### Added
+
+**Location & Venue**
+- `send_location(chat_id, latitude, longitude, *, horizontal_accuracy, live_period, heading, proximity_alert_radius, keyboard)` — send a static or live location
+- `send_venue(chat_id, latitude, longitude, title, address, *, foursquare_id, foursquare_type, google_place_id, google_place_type, keyboard)` — send a named place with address
+- `edit_message_live_location(chat_id, message_id, latitude, longitude, ...)` — update a live location in-place
+- `stop_message_live_location(chat_id, message_id, ...)` — stop a live location broadcast
+- `Location` type — latitude, longitude, horizontal_accuracy, live_period, heading, proximity_alert_radius
+- `Venue` type — location, title, address, foursquare_id, foursquare_type, google_place_id, google_place_type
+- `location` and `venue` fields on `Message`
+- `F.location` filter — matches messages that contain a location
+- `F.venue` filter — matches messages that contain a venue
+- `examples/location_bot.py` — full working example
+
+**Payments**
+- `send_invoice(chat_id, title, description, payload, provider_token, currency, prices, *, ...)` — send a Telegram payment invoice
+- `answer_pre_checkout_query(pre_checkout_query_id, ok, *, error_message)` — confirm or reject payment before charging
+- `PreCheckoutQuery` type with `amount_decimal` property
+- `SuccessfulPayment` type with `amount_decimal` property
+- `LabeledPrice` helper with `to_dict()`
+- `OrderInfo` type for shipping details
+- `@rt.pre_checkout_query()` decorator and `process_pre_checkout_query` / `async_process_pre_checkout_query` on `Router`
+- `@rt.successful_payment()` decorator and `process_successful_payment` / `async_process_successful_payment` on `Router`
+- `successful_payment` field on `Message`
+- `examples/payment_bot.py` — full working example
+
+**Badges**
+- PyPI version badge is now fully dynamic — always shows the latest published version automatically
+
+---
+
 ## [0.1.6] — 2026-03-09
 
 ### Added
