@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gramix"
+version = "0.1.2"
+description = "Мощный фреймворк для создания Telegram ботов."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "riokzy" }
+]
+keywords = ["telegram", "bot", "framework", "async", "gramix"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Communications :: Chat",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+aiohttp = ["aiohttp>=3.9"]
+fastapi = ["fastapi>=0.100", "uvicorn>=0.20"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://github.com/riokzyofficial-debug/gramix"
+Repository = "https://github.com/riokzyofficial-debug/gramix"
+Issues = "https://github.com/riokzyofficial-debug/gramix/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gramix*"]
+
+[tool.setuptools.package-data]
+gramix = ["py.typed"]
