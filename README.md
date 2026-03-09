@@ -30,6 +30,7 @@ A fast, clean, fully-typed Python framework for building Telegram bots. Supports
   - [Middleware](#middleware)
   - [Inline Queries](#inline-queries)
   - [Chat Member Events](#chat-member-events)
+  - [Polls & Quiz](#polls--quiz)
   - [Parse Mode & HTML Formatting](#parse-mode--html-formatting)
   - [Async Mode](#async-mode)
   - [Webhook Mode](#webhook-mode)
@@ -475,6 +476,68 @@ def on_member_update(update):
 
 ---
 
+### Polls & Quiz
+
+Send a regular poll:
+
+```python
+@rt.message("/poll")
+def send_poll(msg):
+    bot.send_poll(
+        chat_id=msg.chat.id,
+        question="What is your favourite language?",
+        options=["Python", "TypeScript", "Rust", "Go"],
+        is_anonymous=True,
+    )
+```
+
+Send a quiz with a correct answer and explanation:
+
+```python
+@rt.message("/quiz")
+def send_quiz(msg):
+    bot.send_poll(
+        chat_id=msg.chat.id,
+        question="What does GIL stand for?",
+        options=["Global Import Loader", "Global Interpreter Lock", "Garbage Index Layer"],
+        poll_type="quiz",
+        correct_option_id=1,
+        explanation="The Global Interpreter Lock allows only one thread to run at a time.",
+    )
+```
+
+Handle votes in non-anonymous polls:
+
+```python
+@rt.poll_answer()
+def on_vote(answer: PollAnswer):
+    if answer.retracted:
+        print(f"{answer.user.full_name} retracted their vote")
+    else:
+        print(f"{answer.user.full_name} chose options {answer.option_ids}")
+```
+
+Stop a poll early and read the final result:
+
+```python
+poll = bot.stop_poll(chat_id=msg.chat.id, message_id=msg.reply_to_message.message_id)
+print(f"Final votes: {poll.total_voter_count}")
+```
+
+Filter messages that contain a forwarded poll or quiz:
+
+```python
+@rt.message(F.quiz)   # register specific filter first
+def on_quiz(msg):
+    print(f"Correct answer: {msg.poll.options[msg.poll.correct_option_id].text}")
+
+@rt.message(F.poll)
+def on_poll(msg):
+    print(f"Poll: {msg.poll.question} ({msg.poll.total_voter_count} votes)")
+```
+
+---
+
 ### Parse Mode & HTML Formatting
 
 Set `parse_mode` once at `Bot` initialization — all `answer()`, `reply()`, `edit()`, `send_photo()`, and `send_video()` calls inherit it automatically:
@@ -614,6 +677,8 @@ async def async_shutdown():
 | `delete_my_commands()` | Delete the bot command list. |
 | `answer_callback_query(callback_query_id, text, *, show_alert)` | Answer a callback query. |
 | `answer_inline_query(inline_query_id, results)` | Answer an inline query. |
+| `send_poll(chat_id, question, options, *, is_anonymous, poll_type, allows_multiple_answers, correct_option_id, explanation, open_period, close_date, is_closed, keyboard)` | Send a regular poll or quiz. |
+| `stop_poll(chat_id, message_id, *, keyboard)` | Close an open poll and return the final `Poll` object. |
 | `set_webhook(url)` | Register a webhook URL. |
 | `delete_webhook()` | Remove the webhook. |
 | `get_webhook_info()` | Get current webhook status. |
@@ -642,6 +707,10 @@ async def async_shutdown():
 | `F.forward` | Message is forwarded |
 | `F.private` | Chat type is private |
 | `F.group` | Chat type is group or supergroup |
+| `F.supergroup` | Chat type is supergroup |
+| `F.channel` | Chat type is channel |
+| `F.poll` | Message contains a forwarded poll |
+| `F.quiz` | Message contains a forwarded quiz |
 
 ---
 

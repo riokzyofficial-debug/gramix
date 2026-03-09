@@ -5,6 +5,26 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.1.6] — 2026-03-09
+
+### Added
+- `send_poll(chat_id, question, options, *, poll_type, is_anonymous, allows_multiple_answers, correct_option_id, explanation, open_period, close_date, is_closed, keyboard)` — send regular polls and quizzes
+- `stop_poll(chat_id, message_id, *, keyboard)` — close an open poll; returns a typed `Poll` object
+- `Poll`, `PollOption`, `PollAnswer` types in `gramix.types.poll`; all three exported from the top-level `gramix` package
+- `PollAnswer.voter_chat` field — handles anonymous poll answers introduced in Bot API 7.3 (previously caused `KeyError`)
+- `PollAnswer.retracted` property — `True` when `option_ids` is empty (user withdrew their vote)
+- `poll` field on `Message` — populated when a message contains a forwarded poll
+- `@rt.poll_answer()` decorator and `process_poll_answer` / `async_process_poll_answer` on `Router`
+- `F.poll` filter — matches messages that contain a forwarded poll
+- `F.quiz` filter — matches messages that contain a forwarded quiz
+- `examples/poll_bot.py` — full working example covering all poll features
+
+### Fixed
+- `send_poll`: parameter renamed from `type` to `poll_type` — avoids shadowing the Python built-in `type`
+- `stop_poll`: now returns a typed `Poll` instead of a raw `dict`, consistent with the rest of the Bot API
+
+---
+
 ## [0.1.5] — 2026-03-09
 
 ### Changed
