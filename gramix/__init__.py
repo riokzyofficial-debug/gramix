@@ -41,6 +41,11 @@ from gramix.types import (
     Poll,
     PollOption,
     PollAnswer,
+    Location,
+    Venue,
+    PreCheckoutQuery,
+    SuccessfulPayment,
+    LabeledPrice,
     Reply,
     RemoveKeyboard,
     Sticker,
@@ -49,7 +54,7 @@ from gramix.types import (
     Voice,
 )
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 __author__ = "riokzy"
 __license__ = "MIT"
 
@@ -68,6 +73,11 @@ __all__ = [
     "Poll",
     "PollOption",
     "PollAnswer",
+    "Location",
+    "Venue",
+    "PreCheckoutQuery",
+    "SuccessfulPayment",
+    "LabeledPrice",
     "PhotoSize",
     "Document",
     "Audio",
