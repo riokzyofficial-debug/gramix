@@ -18,7 +18,7 @@ from gramix.exceptions import (
     TokenError,
     WebhookError,
 )
-from gramix.filters import F
+from gramix.filters import F, CallbackPrefixFilter
 from gramix.fsm import BaseStorage, FSMStorage, MemoryStorage, SQLiteStorage, State, Step
 from gramix.router import Router
 from gramix.types import (
@@ -31,8 +31,16 @@ from gramix.types import (
     Inline,
     InlineQuery,
     InlineQueryResultArticle,
+    InlineQueryResultPhoto,
+    InlineQueryResultGif,
+    InlineQueryResultVideo,
+    InlineQueryResultDocument,
+    InlineQueryResultAudio,
     Message,
     PhotoSize,
+    Poll,
+    PollOption,
+    PollAnswer,
     Reply,
     RemoveKeyboard,
     Sticker,
@@ -57,6 +65,9 @@ __all__ = [
     "Chat",
     "ChatType",
     "ChatMemberUpdated",
+    "Poll",
+    "PollOption",
+    "PollAnswer",
     "PhotoSize",
     "Document",
     "Audio",
@@ -66,6 +77,11 @@ __all__ = [
     "CallbackQuery",
     "InlineQuery",
     "InlineQueryResultArticle",
+    "InlineQueryResultPhoto",
+    "InlineQueryResultGif",
+    "InlineQueryResultVideo",
+    "InlineQueryResultDocument",
+    "InlineQueryResultAudio",
     "Inline",
     "Reply",
     "RemoveKeyboard",
@@ -76,6 +92,7 @@ __all__ = [
     "SQLiteStorage",
     "FSMStorage",
     "F",
+    "CallbackPrefixFilter",
     "load_env",
     "GramixError",
     "TokenError",
