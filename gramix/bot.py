@@ -15,6 +15,7 @@ from gramix.constants import (
     RETRY_DELAY,
     RETRY_BACKOFF,
     TOKEN_ENV_KEY,
+    _SENTINEL,
 )
 from gramix.env import get_token
 from gramix.exceptions import FileError, NetworkError, RetryAfterError, TelegramAPIError, TokenError
@@ -23,8 +24,6 @@ from gramix.types.message import Message
 from gramix.types.user import User
 
 logger = logging.getLogger(__name__)
-
-_SENTINEL = object()
 
 
 class Bot:
@@ -75,12 +74,14 @@ class Bot:
         url = self._build_url(method)
         clean_payload = {k: v for k, v in payload.items() if v is not None}
         delay = RETRY_DELAY
+        last_retry_after: RetryAfterError | None = None
 
         for attempt in range(1, RETRY_ATTEMPTS + 1):
             try:
                 response = self._get_sync_client().post(url, json=clean_payload)
                 return self._parse_response(response)
             except RetryAfterError as e:
+                last_retry_after = e
                 logger.warning("Flood control: ждём %ds.", e.retry_after)
                 time.sleep(e.retry_after)
             except TelegramAPIError:
@@ -92,12 +93,15 @@ class Bot:
                 time.sleep(delay)
                 delay *= RETRY_BACKOFF
 
+        if last_retry_after is not None:
+            raise last_retry_after
         raise NetworkError(f"Запрос {method} не выполнен после {RETRY_ATTEMPTS} попыток.")
 
     async def _async_request(self, method: str, payload: dict) -> Any:
         url = self._build_url(method)
         clean_payload = {k: v for k, v in payload.items() if v is not None}
         delay = RETRY_DELAY
+        last_retry_after: RetryAfterError | None = None
 
         if self._async_client is None or self._async_client.is_closed:
             self._async_client = httpx.AsyncClient(timeout=self._timeout)
@@ -107,6 +111,7 @@ class Bot:
                 response = await self._async_client.post(url, json=clean_payload)
                 return self._parse_response(response)
             except RetryAfterError as e:
+                last_retry_after = e
                 logger.warning("Flood control: ждём %ds.", e.retry_after)
                 await asyncio.sleep(e.retry_after)
             except TelegramAPIError:
@@ -118,6 +123,8 @@ class Bot:
                 await asyncio.sleep(delay)
                 delay *= RETRY_BACKOFF
 
+        if last_retry_after is not None:
+            raise last_retry_after
         raise NetworkError(f"Запрос {method} не выполнен после {RETRY_ATTEMPTS} попыток.")
 
     def _keyboard_dict(self, keyboard: Inline | Reply | RemoveKeyboard | None) -> dict | None:
@@ -131,9 +138,19 @@ class Bot:
             self._me = User.from_dict(self._request("getMe", {}))
         return self._me
 
+    def refresh_me(self) -> User:
+        """Принудительно обновить кэш данных бота (имя/username можно менять через BotFather)."""
+        self._me = User.from_dict(self._request("getMe", {}))
+        return self._me
+
     async def async_get_me(self) -> User:
         if self._me is None:
             self._me = User.from_dict(await self._async_request("getMe", {}))
+        return self._me
+
+    async def async_refresh_me(self) -> User:
+        """Принудительно обновить кэш данных бота (async-версия)."""
+        self._me = User.from_dict(await self._async_request("getMe", {}))
         return self._me
 
     def send_message(
@@ -167,7 +184,7 @@ class Bot:
             "reply_to_message_id": reply_to_message_id,
             "reply_markup": self._keyboard_dict(keyboard),
             "parse_mode": self._effective_parse_mode(parse_mode),
-            "disable_web_page_preview": disable_preview or None,
+            "disable_web_page_preview": disable_preview if disable_preview else None,
         })
         return Message.from_dict(data, self)
 
@@ -202,7 +219,7 @@ class Bot:
             "reply_to_message_id": reply_to_message_id,
             "reply_markup": self._keyboard_dict(keyboard),
             "parse_mode": self._effective_parse_mode(parse_mode),
-            "disable_web_page_preview": disable_preview or None,
+            "disable_web_page_preview": disable_preview if disable_preview else None,
         })
         return Message.from_dict(data, self)
 
@@ -218,7 +235,7 @@ class Bot:
             "chat_id": chat_id,
             "from_chat_id": from_chat_id,
             "message_id": message_id,
-            "disable_notification": disable_notification or None,
+            "disable_notification": disable_notification if disable_notification else None,
         })
         return Message.from_dict(data, self)
 
@@ -229,7 +246,7 @@ class Bot:
         message_id: int,
         *,
         caption: str | None = None,
-        parse_mode: str | None = None,
+        parse_mode: str | None = _SENTINEL,
         keyboard: Inline | Reply | None = None,
     ) -> int:
         data = self._request("copyMessage", {
@@ -237,7 +254,7 @@ class Bot:
             "from_chat_id": from_chat_id,
             "message_id": message_id,
             "caption": caption,
-            "parse_mode": parse_mode,
+            "parse_mode": self._effective_parse_mode(parse_mode),
             "reply_markup": self._keyboard_dict(keyboard),
         })
         return int(data["message_id"])
@@ -249,14 +266,14 @@ class Bot:
         text: str,
         *,
         keyboard: Inline | None = None,
-        parse_mode: str | None = None,
+        parse_mode: str | None = _SENTINEL,
     ) -> Message:
         data = self._request("editMessageText", {
             "chat_id": chat_id,
             "message_id": message_id,
             "text": text,
             "reply_markup": self._keyboard_dict(keyboard),
-            "parse_mode": parse_mode,
+            "parse_mode": self._effective_parse_mode(parse_mode),
         })
         return Message.from_dict(data, self)
 
@@ -288,7 +305,7 @@ class Bot:
         return self._request("pinChatMessage", {
             "chat_id": chat_id,
             "message_id": message_id,
-            "disable_notification": disable_notification or None,
+            "disable_notification": disable_notification if disable_notification else None,
         })
 
     def unpin_chat_message(self, chat_id: int | str, message_id: int) -> bool:
@@ -309,7 +326,7 @@ class Bot:
             "chat_id": chat_id,
             "message_id": message_id,
             "reaction": [{"type": "emoji", "emoji": reaction}],
-            "is_big": is_big or None,
+            "is_big": is_big if is_big else None,
         })
 
     def send_photo(
@@ -319,14 +336,14 @@ class Bot:
         *,
         caption: str | None = None,
         keyboard: Inline | Reply | None = None,
-        parse_mode: str | None = None,
+        parse_mode: str | None = _SENTINEL,
     ) -> Message:
         data = self._request("sendPhoto", {
             "chat_id": chat_id,
             "photo": photo,
             "caption": caption,
             "reply_markup": self._keyboard_dict(keyboard),
-            "parse_mode": parse_mode,
+            "parse_mode": self._effective_parse_mode(parse_mode),
         })
         return Message.from_dict(data, self)
 
@@ -340,7 +357,7 @@ class Bot:
         width: int | None = None,
         height: int | None = None,
         keyboard: Inline | Reply | None = None,
-        parse_mode: str | None = None,
+        parse_mode: str | None = _SENTINEL,
     ) -> Message:
         data = self._request("sendVideo", {
             "chat_id": chat_id,
@@ -350,7 +367,7 @@ class Bot:
             "width": width,
             "height": height,
             "reply_markup": self._keyboard_dict(keyboard),
-            "parse_mode": parse_mode,
+            "parse_mode": self._effective_parse_mode(parse_mode),
         })
         return Message.from_dict(data, self)
 
@@ -441,9 +458,9 @@ class Bot:
         return self._request("answerCallbackQuery", {
             "callback_query_id": callback_query_id,
             "text": text,
-            "show_alert": show_alert or None,
+            "show_alert": show_alert if show_alert else None,
             "url": url,
-            "cache_time": cache_time or None,
+            "cache_time": cache_time if cache_time else None,
         })
 
     def answer_inline_query(
@@ -459,7 +476,7 @@ class Bot:
             "inline_query_id": inline_query_id,
             "results": results,
             "cache_time": cache_time,
-            "is_personal": is_personal or None,
+            "is_personal": is_personal if is_personal else None,
             "next_offset": next_offset,
         })
 
@@ -572,6 +589,58 @@ class Bot:
 
     def get_webhook_info(self) -> dict:
         return self._request("getWebhookInfo", {})
+
+    def send_poll(
+        self,
+        chat_id: int | str,
+        question: str,
+        options: list[str],
+        *,
+        is_anonymous: bool = True,
+        poll_type: str = "regular",
+        allows_multiple_answers: bool = False,
+        correct_option_id: int | None = None,
+        explanation: str | None = None,
+        explanation_parse_mode: str | None = _SENTINEL,
+        open_period: int | None = None,
+        close_date: int | None = None,
+        is_closed: bool = False,
+        keyboard: Inline | Reply | RemoveKeyboard | None = None,
+    ) -> Message:
+        from gramix.types.poll import Poll as _Poll
+        data = self._request("sendPoll", {
+            "chat_id": chat_id,
+            "question": question,
+            "options": [{"text": o} for o in options],
+            "is_anonymous": is_anonymous,
+            "type": poll_type,
+            "allows_multiple_answers": (
+                allows_multiple_answers if poll_type == "regular" else None
+            ),
+            "correct_option_id": correct_option_id,
+            "explanation": explanation,
+            "explanation_parse_mode": self._effective_parse_mode(explanation_parse_mode),
+            "open_period": open_period,
+            "close_date": close_date,
+            "is_closed": is_closed if is_closed else None,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def stop_poll(
+        self,
+        chat_id: int | str,
+        message_id: int,
+        *,
+        keyboard: Inline | None = None,
+    ) -> "Poll":
+        from gramix.types.poll import Poll
+        data = self._request("stopPoll", {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Poll.from_dict(data)
 
     def close(self) -> None:
         if self._sync_client and not self._sync_client.is_closed:

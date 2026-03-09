@@ -52,6 +52,27 @@ class Dispatcher:
             else:
                 self._route_message(msg)
 
+        elif "edited_message" in raw_update:
+            msg = Message.from_dict(raw_update["edited_message"], self._bot)
+            if self._middleware._middlewares:
+                self._middleware.run(msg, self._route_message)
+            else:
+                self._route_message(msg)
+
+        elif "channel_post" in raw_update:
+            msg = Message.from_dict(raw_update["channel_post"], self._bot)
+            if self._middleware._middlewares:
+                self._middleware.run(msg, self._route_message)
+            else:
+                self._route_message(msg)
+
+        elif "edited_channel_post" in raw_update:
+            msg = Message.from_dict(raw_update["edited_channel_post"], self._bot)
+            if self._middleware._middlewares:
+                self._middleware.run(msg, self._route_message)
+            else:
+                self._route_message(msg)
+
         elif "callback_query" in raw_update:
             cb = CallbackQuery.from_dict(raw_update["callback_query"], self._bot)
             for router in self._routers:
@@ -70,9 +91,37 @@ class Dispatcher:
             for router in self._routers:
                 router.process_chat_member(update)
 
+        elif "poll_answer" in raw_update:
+            from gramix.types.poll import PollAnswer
+            answer = PollAnswer.from_dict(raw_update["poll_answer"])
+            for router in self._routers:
+                if router.process_poll_answer(answer):
+                    break
+
     async def _async_dispatch(self, raw_update: dict) -> None:
         if "message" in raw_update:
             msg = Message.from_dict(raw_update["message"], self._bot)
+            if self._middleware._middlewares:
+                await self._middleware.async_run(msg, self._async_route_message)
+            else:
+                await self._async_route_message(msg)
+
+        elif "edited_message" in raw_update:
+            msg = Message.from_dict(raw_update["edited_message"], self._bot)
+            if self._middleware._middlewares:
+                await self._middleware.async_run(msg, self._async_route_message)
+            else:
+                await self._async_route_message(msg)
+
+        elif "channel_post" in raw_update:
+            msg = Message.from_dict(raw_update["channel_post"], self._bot)
+            if self._middleware._middlewares:
+                await self._middleware.async_run(msg, self._async_route_message)
+            else:
+                await self._async_route_message(msg)
+
+        elif "edited_channel_post" in raw_update:
+            msg = Message.from_dict(raw_update["edited_channel_post"], self._bot)
             if self._middleware._middlewares:
                 await self._middleware.async_run(msg, self._async_route_message)
             else:
@@ -95,6 +144,13 @@ class Dispatcher:
             update = ChatMemberUpdated.from_dict(raw_update[key])
             for router in self._routers:
                 await router.async_process_chat_member(update)
+
+        elif "poll_answer" in raw_update:
+            from gramix.types.poll import PollAnswer
+            answer = PollAnswer.from_dict(raw_update["poll_answer"])
+            for router in self._routers:
+                if await router.async_process_poll_answer(answer):
+                    break
 
     def _route_message(self, msg: Message) -> None:
         for router in self._routers:
@@ -138,9 +194,10 @@ class Dispatcher:
 
         if drop_pending:
             try:
-                updates = self._bot.get_updates(timeout=0, limit=1)
-                if updates:
-                    self._bot.get_updates(offset=updates[-1]["update_id"] + 1, timeout=0)
+                updates = self._bot.get_updates(timeout=0, limit=100)
+                while updates:
+                    offset = updates[-1]["update_id"] + 1
+                    updates = self._bot.get_updates(offset=offset, timeout=0, limit=100)
             except Exception:
                 pass
 
@@ -205,11 +262,10 @@ class Dispatcher:
 
         if drop_pending:
             try:
-                updates = await self._bot.async_get_updates(timeout=0, limit=1)
-                if updates:
-                    await self._bot.async_get_updates(
-                        offset=updates[-1]["update_id"] + 1, timeout=0
-                    )
+                updates = await self._bot.async_get_updates(timeout=0, limit=100)
+                while updates:
+                    offset = updates[-1]["update_id"] + 1
+                    updates = await self._bot.async_get_updates(offset=offset, timeout=0, limit=100)
             except Exception:
                 pass
 
@@ -309,7 +365,7 @@ class Dispatcher:
         async def handle(request: web.Request) -> web.Response:
             try:
                 data = await request.json()
-                self._dispatch(data)
+                await self._async_dispatch(data)
             except Exception:
                 logger.exception("Ошибка при обработке webhook запроса:")
             return web.Response(text="OK")
@@ -360,7 +416,7 @@ class Dispatcher:
         async def handle(request: Request) -> Response:
             try:
                 data = await request.json()
-                self._dispatch(data)
+                await self._async_dispatch(data)
             except Exception:
                 logger.exception("Ошибка при обработке webhook запроса:")
             return Response(content="OK")
@@ -404,7 +460,15 @@ class Dispatcher:
     def _call_handlers(self, handlers: list[Callable]) -> None:
         for handler in handlers:
             try:
-                handler()
+                if asyncio.iscoroutinefunction(handler):
+                    logger.warning(
+                        "Lifecycle handler '%s' is async but running in sync mode — "
+                        "используй run_async() или объяви handler как sync-функцию.",
+                        handler.__name__,
+                    )
+                    asyncio.get_event_loop().run_until_complete(handler())
+                else:
+                    handler()
             except Exception:
                 logger.exception("Ошибка в lifecycle handler:")
 

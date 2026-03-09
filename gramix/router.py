@@ -38,6 +38,7 @@ class Router:
         self._inline_handlers: list[Handler] = []
         self._chat_member_handlers: list[Callable] = []
         self._state_handlers: dict[str, Callable] = {}
+        self._poll_answer_handlers: list[Callable] = []
         self.fsm: BaseStorage = storage if storage is not None else MemoryStorage()
 
     def message(self, *args: str | BaseFilter, **kwargs: Any) -> Callable:
@@ -73,6 +74,12 @@ class Router:
     def chat_member(self) -> Callable:
         def decorator(func: Callable) -> Callable:
             self._chat_member_handlers.append(func)
+            return func
+        return decorator
+
+    def poll_answer(self) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            self._poll_answer_handlers.append(func)
             return func
         return decorator
 
@@ -134,25 +141,41 @@ class Router:
 
     def process_inline(self, query: InlineQuery) -> bool:
         for handler in self._inline_handlers:
-            self._call(handler.func, query)
-            return True
+            if handler.matches(query):
+                self._call(handler.func, query)
+                return True
         return False
 
     async def async_process_inline(self, query: InlineQuery) -> bool:
         for handler in self._inline_handlers:
-            await self._async_call(handler.func, query)
-            return True
+            if handler.matches(query):
+                await self._async_call(handler.func, query)
+                return True
         return False
 
     def process_chat_member(self, update: ChatMemberUpdated) -> bool:
         for func in self._chat_member_handlers:
             self._call(func, update)
-        return bool(self._chat_member_handlers)
+            return True
+        return False
 
     async def async_process_chat_member(self, update: ChatMemberUpdated) -> bool:
         for func in self._chat_member_handlers:
             await self._async_call(func, update)
-        return bool(self._chat_member_handlers)
+            return True
+        return False
+
+    def process_poll_answer(self, answer: object) -> bool:
+        for func in self._poll_answer_handlers:
+            self._call(func, answer)
+            return True
+        return False
+
+    async def async_process_poll_answer(self, answer: object) -> bool:
+        for func in self._poll_answer_handlers:
+            await self._async_call(func, answer)
+            return True
+        return False
 
     def _call(self, func: Callable, *args: Any) -> None:
         try:

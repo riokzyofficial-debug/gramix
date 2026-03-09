@@ -124,6 +124,16 @@ class GroupChatFilter(BaseFilter):
         return update.chat.is_group
 
 
+class HasPollFilter(BaseFilter):
+    def check(self, update: Message) -> bool:
+        return update.poll is not None
+
+
+class HasQuizFilter(BaseFilter):
+    def check(self, update: Message) -> bool:
+        return update.poll is not None and update.poll.poll_type == "quiz"
+
+
 class F:
     photo = HasPhotoFilter()
     document = HasDocumentFilter()
@@ -136,3 +146,5 @@ class F:
     reply = IsReplyFilter()
     private = PrivateChatFilter()
     group = GroupChatFilter()
+    poll = HasPollFilter()
+    quiz = HasQuizFilter()
