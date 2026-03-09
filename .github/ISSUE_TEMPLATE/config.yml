@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a question
+    url: https://github.com/riokzyofficial-debug/gramix/discussions
+    about: Use Discussions for general questions and help
+  - name: 📦 PyPI package
+    url: https://pypi.org/project/gramix
+    about: View the package on PyPI
