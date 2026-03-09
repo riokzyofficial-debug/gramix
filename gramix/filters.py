@@ -134,6 +134,16 @@ class HasQuizFilter(BaseFilter):
         return update.poll is not None and update.poll.poll_type == "quiz"
 
 
+class HasLocationFilter(BaseFilter):
+    def check(self, update: Message) -> bool:
+        return update.location is not None
+
+
+class HasVenueFilter(BaseFilter):
+    def check(self, update: Message) -> bool:
+        return update.venue is not None
+
+
 class F:
     photo = HasPhotoFilter()
     document = HasDocumentFilter()
@@ -148,3 +158,5 @@ class F:
     group = GroupChatFilter()
     poll = HasPollFilter()
     quiz = HasQuizFilter()
+    location = HasLocationFilter()
+    venue = HasVenueFilter()

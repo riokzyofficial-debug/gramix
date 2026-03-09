@@ -642,6 +642,169 @@ class Bot:
         })
         return Poll.from_dict(data)
 
+    def send_location(
+        self,
+        chat_id: int | str,
+        latitude: float,
+        longitude: float,
+        *,
+        horizontal_accuracy: float | None = None,
+        live_period: int | None = None,
+        heading: int | None = None,
+        proximity_alert_radius: int | None = None,
+        keyboard: Inline | Reply | RemoveKeyboard | None = None,
+    ) -> Message:
+        from gramix.types.location import Location
+        data = self._request("sendLocation", {
+            "chat_id": chat_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "horizontal_accuracy": horizontal_accuracy,
+            "live_period": live_period,
+            "heading": heading,
+            "proximity_alert_radius": proximity_alert_radius,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def send_venue(
+        self,
+        chat_id: int | str,
+        latitude: float,
+        longitude: float,
+        title: str,
+        address: str,
+        *,
+        foursquare_id: str | None = None,
+        foursquare_type: str | None = None,
+        google_place_id: str | None = None,
+        google_place_type: str | None = None,
+        keyboard: Inline | Reply | RemoveKeyboard | None = None,
+    ) -> Message:
+        data = self._request("sendVenue", {
+            "chat_id": chat_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "title": title,
+            "address": address,
+            "foursquare_id": foursquare_id,
+            "foursquare_type": foursquare_type,
+            "google_place_id": google_place_id,
+            "google_place_type": google_place_type,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def edit_message_live_location(
+        self,
+        chat_id: int | str,
+        message_id: int,
+        latitude: float,
+        longitude: float,
+        *,
+        horizontal_accuracy: float | None = None,
+        heading: int | None = None,
+        proximity_alert_radius: int | None = None,
+        keyboard: Inline | None = None,
+    ) -> Message:
+        data = self._request("editMessageLiveLocation", {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "horizontal_accuracy": horizontal_accuracy,
+            "heading": heading,
+            "proximity_alert_radius": proximity_alert_radius,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def stop_message_live_location(
+        self,
+        chat_id: int | str,
+        message_id: int,
+        *,
+        keyboard: Inline | None = None,
+    ) -> Message:
+        data = self._request("stopMessageLiveLocation", {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def send_invoice(
+        self,
+        chat_id: int | str,
+        title: str,
+        description: str,
+        payload: str,
+        provider_token: str,
+        currency: str,
+        prices: list,
+        *,
+        max_tip_amount: int | None = None,
+        suggested_tip_amounts: list[int] | None = None,
+        start_parameter: str | None = None,
+        provider_data: str | None = None,
+        photo_url: str | None = None,
+        photo_size: int | None = None,
+        photo_width: int | None = None,
+        photo_height: int | None = None,
+        need_name: bool = False,
+        need_phone_number: bool = False,
+        need_email: bool = False,
+        need_shipping_address: bool = False,
+        send_phone_number_to_provider: bool = False,
+        send_email_to_provider: bool = False,
+        is_flexible: bool = False,
+        protect_content: bool = False,
+        keyboard: Inline | None = None,
+    ) -> Message:
+        prices_raw = [
+            p.to_dict() if hasattr(p, "to_dict") else p for p in prices
+        ]
+        data = self._request("sendInvoice", {
+            "chat_id": chat_id,
+            "title": title,
+            "description": description,
+            "payload": payload,
+            "provider_token": provider_token,
+            "currency": currency,
+            "prices": prices_raw,
+            "max_tip_amount": max_tip_amount,
+            "suggested_tip_amounts": suggested_tip_amounts,
+            "start_parameter": start_parameter,
+            "provider_data": provider_data,
+            "photo_url": photo_url,
+            "photo_size": photo_size,
+            "photo_width": photo_width,
+            "photo_height": photo_height,
+            "need_name": need_name if need_name else None,
+            "need_phone_number": need_phone_number if need_phone_number else None,
+            "need_email": need_email if need_email else None,
+            "need_shipping_address": need_shipping_address if need_shipping_address else None,
+            "send_phone_number_to_provider": send_phone_number_to_provider if send_phone_number_to_provider else None,
+            "send_email_to_provider": send_email_to_provider if send_email_to_provider else None,
+            "is_flexible": is_flexible if is_flexible else None,
+            "protect_content": protect_content if protect_content else None,
+            "reply_markup": self._keyboard_dict(keyboard),
+        })
+        return Message.from_dict(data, self)
+
+    def answer_pre_checkout_query(
+        self,
+        pre_checkout_query_id: str,
+        ok: bool,
+        *,
+        error_message: str | None = None,
+    ) -> bool:
+        return self._request("answerPreCheckoutQuery", {
+            "pre_checkout_query_id": pre_checkout_query_id,
+            "ok": ok,
+            "error_message": error_message,
+        })
+
     def close(self) -> None:
         if self._sync_client and not self._sync_client.is_closed:
             self._sync_client.close()

@@ -98,6 +98,13 @@ class Dispatcher:
                 if router.process_poll_answer(answer):
                     break
 
+        elif "pre_checkout_query" in raw_update:
+            from gramix.types.payment import PreCheckoutQuery
+            query = PreCheckoutQuery.from_dict(raw_update["pre_checkout_query"])
+            for router in self._routers:
+                if router.process_pre_checkout_query(query):
+                    break
+
     async def _async_dispatch(self, raw_update: dict) -> None:
         if "message" in raw_update:
             msg = Message.from_dict(raw_update["message"], self._bot)
@@ -152,12 +159,29 @@ class Dispatcher:
                 if await router.async_process_poll_answer(answer):
                     break
 
+        elif "pre_checkout_query" in raw_update:
+            from gramix.types.payment import PreCheckoutQuery
+            query = PreCheckoutQuery.from_dict(raw_update["pre_checkout_query"])
+            for router in self._routers:
+                if await router.async_process_pre_checkout_query(query):
+                    break
+
     def _route_message(self, msg: Message) -> None:
+        if msg.successful_payment is not None:
+            for router in self._routers:
+                if router.process_successful_payment(msg):
+                    break
+            return
         for router in self._routers:
             if router.process_message(msg):
                 break
 
     async def _async_route_message(self, msg: Message) -> None:
+        if msg.successful_payment is not None:
+            for router in self._routers:
+                if await router.async_process_successful_payment(msg):
+                    break
+            return
         for router in self._routers:
             if await router.async_process_message(msg):
                 break

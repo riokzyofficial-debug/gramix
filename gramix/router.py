@@ -39,6 +39,8 @@ class Router:
         self._chat_member_handlers: list[Callable] = []
         self._state_handlers: dict[str, Callable] = {}
         self._poll_answer_handlers: list[Callable] = []
+        self._pre_checkout_handlers: list[Callable] = []
+        self._successful_payment_handlers: list[Callable] = []
         self.fsm: BaseStorage = storage if storage is not None else MemoryStorage()
 
     def message(self, *args: str | BaseFilter, **kwargs: Any) -> Callable:
@@ -80,6 +82,18 @@ class Router:
     def poll_answer(self) -> Callable:
         def decorator(func: Callable) -> Callable:
             self._poll_answer_handlers.append(func)
+            return func
+        return decorator
+
+    def pre_checkout_query(self) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            self._pre_checkout_handlers.append(func)
+            return func
+        return decorator
+
+    def successful_payment(self) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            self._successful_payment_handlers.append(func)
             return func
         return decorator
 
@@ -174,6 +188,30 @@ class Router:
     async def async_process_poll_answer(self, answer: object) -> bool:
         for func in self._poll_answer_handlers:
             await self._async_call(func, answer)
+            return True
+        return False
+
+    def process_pre_checkout_query(self, query: object) -> bool:
+        for func in self._pre_checkout_handlers:
+            self._call(func, query)
+            return True
+        return False
+
+    async def async_process_pre_checkout_query(self, query: object) -> bool:
+        for func in self._pre_checkout_handlers:
+            await self._async_call(func, query)
+            return True
+        return False
+
+    def process_successful_payment(self, message: object) -> bool:
+        for func in self._successful_payment_handlers:
+            self._call(func, message)
+            return True
+        return False
+
+    async def async_process_successful_payment(self, message: object) -> bool:
+        for func in self._successful_payment_handlers:
+            await self._async_call(func, message)
             return True
         return False
 
