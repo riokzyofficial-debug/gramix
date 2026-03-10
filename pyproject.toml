@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gramix"
-version = "0.1.7"
+version = "0.1.8"
 description = "A fast, fully-typed Python framework for building Telegram bots."
-readme = "README.md"
+readme = "README_pypi.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [

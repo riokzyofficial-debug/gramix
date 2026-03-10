@@ -37,6 +37,8 @@ A fast, clean, fully-typed Python framework for building Telegram bots. Supports
   - [Async Mode](#async-mode)
   - [Webhook Mode](#webhook-mode)
   - [Lifecycle Hooks](#lifecycle-hooks)
+  - [Telegram Games](#telegram-games)
+  - [Rate Limiting](#rate-limiting)
 - [API Reference](#api-reference)
 - [License](#license)
 
@@ -727,6 +729,72 @@ async def async_shutdown():
 
 ---
 
+### Telegram Games
+
+Send a Telegram game and track scores:
+
+```python
+from gramix import Inline
+
+@rt.message("/game")
+def on_game(msg):
+    kb = Inline().button("🎮 Play", callback="game_play")
+    bot.send_game(chat_id=msg.chat.id, game_short_name="mygame", keyboard=kb)
+
+# Triggered when the user presses the Play button
+@rt.game_callback()
+def on_game_play(cb):
+    cb.answer(url=f"https://yourdomain.com/game?user={cb.from_user.id}")
+
+@rt.message("/setscore")
+def on_set_score(msg):
+    bot.set_game_score(
+        user_id=msg.from_user.id,
+        score=42,
+        chat_id=msg.chat.id,
+        message_id=msg.reply_to_message.message_id,
+    )
+
+@rt.message("/scores")
+def on_scores(msg):
+    scores = bot.get_game_high_scores(
+        user_id=msg.from_user.id,
+        chat_id=msg.chat.id,
+        message_id=msg.reply_to_message.message_id,
+    )
+    for entry in scores:
+        msg.answer(f"#{entry.position} {entry.user.full_name}: {entry.score}")
+```
+
+---
+
+### Rate Limiting
+
+Prevent users from flooding your bot using the built-in `ThrottlingMiddleware`:
+
+```python
+from gramix import ThrottlingMiddleware
+
+# Allow one message per second per user (silent drop)
+dp.middleware(ThrottlingMiddleware(rate=1.0))
+
+# With a custom response when throttled
+def on_throttle(msg):
+    msg.answer("⚠️ Too many requests. Please wait a moment.")
+
+dp.middleware(ThrottlingMiddleware(rate=1.0, on_throttle=on_throttle))
+
+# Async on_throttle is supported too
+async def on_throttle_async(msg):
+    await msg.answer("⚠️ Slow down!")
+
+dp.middleware(ThrottlingMiddleware(rate=0.5, on_throttle=on_throttle_async))
+```
+
+`ThrottlingMiddleware` works transparently in both `dp.run()` (sync) and `dp.run_async()` (async) modes.
+
+---
+
 ## API Reference
 
 ### `Bot`
@@ -771,10 +839,28 @@ async def async_shutdown():
 | `stop_message_live_location(chat_id, message_id)` | Stop a live location broadcast. |
 | `send_invoice(chat_id, title, description, payload, provider_token, currency, prices, *, keyboard)` | Send a payment invoice. |
 | `answer_pre_checkout_query(pre_checkout_query_id, ok, *, error_message)` | Confirm or reject a pre-checkout query. |
-| `set_webhook(url)` | Register a webhook URL. |
+| `send_game(chat_id, game_short_name, *, keyboard)` | Send a Telegram game. |
+| `set_game_score(user_id, score, *, chat_id, message_id, inline_message_id, force, disable_edit_return)` | Set a user's score in a game. |
+| `get_game_high_scores(user_id, *, chat_id, message_id, inline_message_id)` | Get the high score table; returns `list[GameHighScore]`. |
+| `set_webhook(url, *, secret_token)` | Register a webhook URL. |
 | `delete_webhook()` | Remove the webhook. |
 | `get_webhook_info()` | Get current webhook status. |
 | `close()` | Close the HTTP client. |
+
+### `ThrottlingMiddleware`
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `rate` | `float` | `1.0` | Minimum seconds between accepted messages per user. |
+| `on_throttle` | `Callable \| None` | `None` | Optional callback `(update) -> None` (sync or async) invoked when a message is throttled. If `None`, throttled messages are silently dropped. |
+
+Register it like any other middleware:
+
+```python
+dp.middleware(ThrottlingMiddleware(rate=1.0))
+```
+
+Works in both `dp.run()` (sync) and `dp.run_async()` (async) modes without any changes.
 
 ### `ParseMode`
 

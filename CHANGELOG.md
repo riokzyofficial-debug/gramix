@@ -5,6 +5,41 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.1.8] — 2026-03-10
+
+> First official release on PyPI. Consolidates all development from 0.1.0–0.1.7 with polling performance improvements and full Telegram Bot API coverage.
+
+### Added
+
+**Polling performance**
+- `_CHUNK`-based polling loop — each `getUpdates` cycle uses a short timeout, enabling fast bot shutdown (≤1 s in async mode, ≤3 s in sync mode)
+- `http_timeout` parameter on `Bot._request` / `Bot._async_request` — httpx timeout now dynamically matches the long-poll timeout + 2 s buffer, eliminating stale connection hangs
+- `threading.Event`-based stop signal in sync polling — all pauses are now interruptible, preventing delays on shutdown
+- `DEFAULT_TIMEOUT` reduced to `10.0` s; `POLLING_TIMEOUT` reduced to `3` s
+
+**Telegram Games API**
+- `send_game(chat_id, game_short_name, *, keyboard)` — send a Telegram game
+- `set_game_score(user_id, score, *, chat_id, message_id, inline_message_id, force, disable_edit_return)` — set a user's score in a game
+- `get_game_high_scores(user_id, *, chat_id, message_id, inline_message_id)` — fetch the high score table; returns a list of `GameHighScore` objects
+- `GameHighScore` type with fields `position`, `user` (`User`), `score`
+- `game_short_name` field on `CallbackQuery` — populated when the user presses a Play button
+- `@rt.game_callback()` decorator on `Router` — routes callback queries that carry `game_short_name`
+
+**Rate Limiting**
+- `ThrottlingMiddleware(rate, *, on_throttle)` — built-in per-user rate limiter; works in both sync and async mode; optional `on_throttle` callback invoked instead of silently dropping throttled messages
+
+### Fixed
+- `send_message` / `async_send_message`: `keyboard` parameter is now correctly forwarded in recursive calls when `auto_split=True`
+- Webhook (raw backend): incoming requests are now validated against the `X-Telegram-Bot-Api-Secret-Token` header; mismatches return HTTP 403
+- `Message.reply_photo` / `Message.reply_video`: `parse_mode` default changed from `None` to `_SENTINEL` — correctly inherits the bot's global `parse_mode`
+- `Dispatcher._call_handlers`: replaced deprecated `asyncio.get_event_loop().run_until_complete()` with `asyncio.run()` (Python 3.10+)
+- `SQLiteStorage`: added `close()` method and context manager support (`__enter__` / `__exit__`)
+- `InlineButton.to_dict`: over-length `callback_data` now raises `ValueError` instead of the semantically incorrect `FilterError`
+- `Router.process_chat_member` / `async_process_chat_member`: all registered handlers are now called, not only the first one
+- `MemoryStorage.delete`: fixed memory leak — the user entry is now fully removed from the storage dict (the 0.1.3 fix only reset the state object without deleting the key)
+
+---
+
 ## [0.1.7] — 2026-03-09
 
 ### Added
