@@ -13,9 +13,12 @@ build/
 dist/
 *.whl
 *.tar.gz
+*.zip
 
 # Env
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 env/
@@ -25,12 +28,49 @@ env/
 .vscode/
 *.swp
 *.swo
+*.swn
 .DS_Store
+Thumbs.db
+desktop.ini
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
+*.log
 
 # Typing
 .mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+*~
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Secrets
+*.pem
+*.key
+*.cert
+*.p12
+secrets.json
+config.local.*
+
+# Site
+site/
+gramix-site/
+gramix-site-v2/
+_site/
+
+# Temp
+tmp/
+temp/
+.tmp/
