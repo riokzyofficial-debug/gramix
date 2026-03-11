@@ -19,14 +19,16 @@ from gramix.exceptions import (
     TokenError,
     WebhookError,
 )
-from gramix.filters import F, CallbackPrefixFilter
+from gramix.filters import F, BaseFilter, CallbackPrefixFilter
 from gramix.fsm import BaseStorage, FSMStorage, MemoryStorage, SQLiteStorage, State, Step
 from gramix.router import Router
 from gramix.types import (
     Audio,
+    BotCommand,
     CallbackQuery,
     Chat,
     ChatMemberUpdated,
+    ChatPermissions,
     ChatType,
     Document,
     GameHighScore,
@@ -56,7 +58,7 @@ from gramix.types import (
     Voice,
 )
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 __author__ = "riokzy"
 __license__ = "MIT"
 
@@ -66,6 +68,8 @@ __all__ = [
     "GameHighScore",
     "ThrottlingMiddleware",
     "Bot",
+    "BotCommand",
+    "ChatPermissions",
     "Dispatcher",
     "Router",
     "ParseMode",
@@ -106,6 +110,7 @@ __all__ = [
     "SQLiteStorage",
     "FSMStorage",
     "F",
+    "BaseFilter",
     "CallbackPrefixFilter",
     "load_env",
     "GramixError",

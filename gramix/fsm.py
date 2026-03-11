@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 _MAX_MEMORY_SIZE = 10_000
 
-
 class Step:
     _name: str
     _owner: str
@@ -24,13 +23,11 @@ class Step:
     def __repr__(self) -> str:
         return f"{self._owner}.{self._name}"
 
-
 class StateMeta(type):
     def __new__(mcs, name: str, bases: tuple, namespace: dict) -> StateMeta:
         steps = [key for key, value in namespace.items() if isinstance(value, Step)]
         namespace["_steps"] = steps
         return super().__new__(mcs, name, bases, namespace)
-
 
 class State(metaclass=StateMeta):
     _steps: list[str] = []
@@ -38,7 +35,6 @@ class State(metaclass=StateMeta):
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         _register_state(cls)
-
 
 class StateContext:
     __slots__ = ("_state_class", "_current_step", "data", "_user_id", "_storage")
@@ -120,7 +116,6 @@ class StateContext:
             return False
         return self._state_class.__name__ == step._owner and self._current_step == step._name
 
-
 class BaseStorage(ABC):
     @abstractmethod
     def get(self, user_id: int) -> StateContext:
@@ -138,40 +133,40 @@ class BaseStorage(ABC):
     def clear_all(self) -> None:
         ...
 
-
 class MemoryStorage(BaseStorage):
     def __init__(self) -> None:
         self._storage: dict[int, StateContext] = {}
+        self._lock = threading.Lock()
 
     def get(self, user_id: int) -> StateContext:
-        if user_id not in self._storage:
-            if len(self._storage) >= _MAX_MEMORY_SIZE:
-                self._evict_inactive()
-            self._storage[user_id] = StateContext(user_id, self)
-        return self._storage[user_id]
+        with self._lock:
+            if user_id not in self._storage:
+                if len(self._storage) >= _MAX_MEMORY_SIZE:
+                    self._evict_inactive()
+                self._storage[user_id] = StateContext(user_id, self)
+            return self._storage[user_id]
 
     def set(self, user_id: int, state_class: str, step: str, data: dict) -> None:
-        # No-op: state is held by StateContext object directly in self._storage.
-        # StateContext mutates its own fields (_state_class, _current_step, data),
-        # so there is nothing to persist separately for in-memory storage.
+
         pass
 
     def delete(self, user_id: int) -> None:
-        if user_id in self._storage:
-            self._storage[user_id]._reset()
-            del self._storage[user_id]
+        with self._lock:
+            if user_id in self._storage:
+                self._storage[user_id]._reset()
+                del self._storage[user_id]
 
     def clear_all(self) -> None:
-        self._storage.clear()
+        with self._lock:
+            self._storage.clear()
 
     def _evict_inactive(self) -> None:
+
         inactive = [uid for uid, ctx in self._storage.items() if not ctx.is_active]
         for uid in inactive:
             del self._storage[uid]
 
-
 FSMStorage = MemoryStorage
-
 
 class SQLiteStorage(BaseStorage):
     def __init__(self, path: str = "gramix_fsm.db") -> None:
@@ -243,7 +238,6 @@ class SQLiteStorage(BaseStorage):
             self._conn.commit()
 
     def close(self) -> None:
-        """Close the underlying SQLite connection."""
         with self._lock:
             self._conn.close()
 
@@ -253,17 +247,11 @@ class SQLiteStorage(BaseStorage):
     def __exit__(self, *_: object) -> None:
         self.close()
 
-
 _state_registry: dict[str, type[State]] = {}
-
 
 def _register_state(cls: type[State]) -> None:
     _state_registry[cls.__name__] = cls
 
-
 def _find_state_class(name: str) -> type[State] | None:
     return _state_registry.get(name)
-
-
-
 

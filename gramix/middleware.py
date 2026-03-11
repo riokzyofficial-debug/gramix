@@ -6,7 +6,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class MiddlewareManager:
     def __init__(self) -> None:
         self._middlewares: list[Callable] = []
@@ -38,7 +37,6 @@ class MiddlewareManager:
                 async def next_fn() -> None:
                     await call_next(idx + 1)
 
-                # If the middleware exposes async_call, use it (e.g. ThrottlingMiddleware).
                 if hasattr(mw, "async_call"):
                     await mw.async_call(update, next_fn)
                 elif asyncio.iscoroutinefunction(mw):

@@ -19,7 +19,6 @@ from gramix.types.message import Message
 
 logger = logging.getLogger(__name__)
 
-
 class Dispatcher:
     def __init__(self, bot: Bot) -> None:
         self._bot = bot
@@ -56,60 +55,88 @@ class Dispatcher:
         elif "edited_message" in raw_update:
             msg = Message.from_dict(raw_update["edited_message"], self._bot)
             if self._middleware._middlewares:
-                self._middleware.run(msg, self._route_message)
+                self._middleware.run(msg, self._route_edited_message)
             else:
-                self._route_message(msg)
+                self._route_edited_message(msg)
 
         elif "channel_post" in raw_update:
             msg = Message.from_dict(raw_update["channel_post"], self._bot)
             if self._middleware._middlewares:
-                self._middleware.run(msg, self._route_message)
+                self._middleware.run(msg, self._route_channel_post)
             else:
-                self._route_message(msg)
+                self._route_channel_post(msg)
 
         elif "edited_channel_post" in raw_update:
             msg = Message.from_dict(raw_update["edited_channel_post"], self._bot)
             if self._middleware._middlewares:
-                self._middleware.run(msg, self._route_message)
+                self._middleware.run(msg, self._route_edited_channel_post)
             else:
-                self._route_message(msg)
+                self._route_edited_channel_post(msg)
 
         elif "callback_query" in raw_update:
             cb = CallbackQuery.from_dict(raw_update["callback_query"], self._bot)
             if cb.game_short_name is not None:
-                for router in self._routers:
-                    if router.process_game_callback(cb):
-                        break
+                def _route_game(c: CallbackQuery) -> None:
+                    for router in self._routers:
+                        if router.process_game_callback(c):
+                            break
+                if self._middleware._middlewares:
+                    self._middleware.run(cb, _route_game)
+                else:
+                    _route_game(cb)
             else:
-                for router in self._routers:
-                    if router.process_callback(cb):
-                        break
+                def _route_cb(c: CallbackQuery) -> None:
+                    for router in self._routers:
+                        if router.process_callback(c):
+                            break
+                if self._middleware._middlewares:
+                    self._middleware.run(cb, _route_cb)
+                else:
+                    _route_cb(cb)
 
         elif "inline_query" in raw_update:
             query = InlineQuery.from_dict(raw_update["inline_query"], self._bot)
-            for router in self._routers:
-                if router.process_inline(query):
-                    break
+            def _route_inline(q: InlineQuery) -> None:
+                for router in self._routers:
+                    if router.process_inline(q):
+                        break
+            if self._middleware._middlewares:
+                self._middleware.run(query, _route_inline)
+            else:
+                _route_inline(query)
 
         elif "my_chat_member" in raw_update or "chat_member" in raw_update:
             key = "my_chat_member" if "my_chat_member" in raw_update else "chat_member"
             update = ChatMemberUpdated.from_dict(raw_update[key])
-            for router in self._routers:
-                router.process_chat_member(update)
+            if self._middleware._middlewares:
+                self._middleware.run(update, lambda u: [router.process_chat_member(u) for router in self._routers])
+            else:
+                for router in self._routers:
+                    router.process_chat_member(update)
 
         elif "poll_answer" in raw_update:
             from gramix.types.poll import PollAnswer
             answer = PollAnswer.from_dict(raw_update["poll_answer"])
-            for router in self._routers:
-                if router.process_poll_answer(answer):
-                    break
+            def _route_poll(a: object) -> None:
+                for router in self._routers:
+                    if router.process_poll_answer(a):
+                        break
+            if self._middleware._middlewares:
+                self._middleware.run(answer, _route_poll)
+            else:
+                _route_poll(answer)
 
         elif "pre_checkout_query" in raw_update:
             from gramix.types.payment import PreCheckoutQuery
             query = PreCheckoutQuery.from_dict(raw_update["pre_checkout_query"])
-            for router in self._routers:
-                if router.process_pre_checkout_query(query):
-                    break
+            def _route_precheckout(q: object) -> None:
+                for router in self._routers:
+                    if router.process_pre_checkout_query(q):
+                        break
+            if self._middleware._middlewares:
+                self._middleware.run(query, _route_precheckout)
+            else:
+                _route_precheckout(query)
 
     async def _async_dispatch(self, raw_update: dict) -> None:
         if "message" in raw_update:
@@ -122,60 +149,90 @@ class Dispatcher:
         elif "edited_message" in raw_update:
             msg = Message.from_dict(raw_update["edited_message"], self._bot)
             if self._middleware._middlewares:
-                await self._middleware.async_run(msg, self._async_route_message)
+                await self._middleware.async_run(msg, self._async_route_edited_message)
             else:
-                await self._async_route_message(msg)
+                await self._async_route_edited_message(msg)
 
         elif "channel_post" in raw_update:
             msg = Message.from_dict(raw_update["channel_post"], self._bot)
             if self._middleware._middlewares:
-                await self._middleware.async_run(msg, self._async_route_message)
+                await self._middleware.async_run(msg, self._async_route_channel_post)
             else:
-                await self._async_route_message(msg)
+                await self._async_route_channel_post(msg)
 
         elif "edited_channel_post" in raw_update:
             msg = Message.from_dict(raw_update["edited_channel_post"], self._bot)
             if self._middleware._middlewares:
-                await self._middleware.async_run(msg, self._async_route_message)
+                await self._middleware.async_run(msg, self._async_route_edited_channel_post)
             else:
-                await self._async_route_message(msg)
+                await self._async_route_edited_channel_post(msg)
 
         elif "callback_query" in raw_update:
             cb = CallbackQuery.from_dict(raw_update["callback_query"], self._bot)
             if cb.game_short_name is not None:
-                for router in self._routers:
-                    if await router.async_process_game_callback(cb):
-                        break
+                async def _route_game(c: CallbackQuery) -> None:
+                    for router in self._routers:
+                        if await router.async_process_game_callback(c):
+                            break
+                if self._middleware._middlewares:
+                    await self._middleware.async_run(cb, _route_game)
+                else:
+                    await _route_game(cb)
             else:
-                for router in self._routers:
-                    if await router.async_process_callback(cb):
-                        break
+                async def _route_cb(c: CallbackQuery) -> None:
+                    for router in self._routers:
+                        if await router.async_process_callback(c):
+                            break
+                if self._middleware._middlewares:
+                    await self._middleware.async_run(cb, _route_cb)
+                else:
+                    await _route_cb(cb)
 
         elif "inline_query" in raw_update:
             query = InlineQuery.from_dict(raw_update["inline_query"], self._bot)
-            for router in self._routers:
-                if await router.async_process_inline(query):
-                    break
+            async def _route_inline(q: InlineQuery) -> None:
+                for router in self._routers:
+                    if await router.async_process_inline(q):
+                        break
+            if self._middleware._middlewares:
+                await self._middleware.async_run(query, _route_inline)
+            else:
+                await _route_inline(query)
 
         elif "my_chat_member" in raw_update or "chat_member" in raw_update:
             key = "my_chat_member" if "my_chat_member" in raw_update else "chat_member"
             update = ChatMemberUpdated.from_dict(raw_update[key])
-            for router in self._routers:
-                await router.async_process_chat_member(update)
+            async def _route_member(u: ChatMemberUpdated) -> None:
+                for router in self._routers:
+                    await router.async_process_chat_member(u)
+            if self._middleware._middlewares:
+                await self._middleware.async_run(update, _route_member)
+            else:
+                await _route_member(update)
 
         elif "poll_answer" in raw_update:
             from gramix.types.poll import PollAnswer
             answer = PollAnswer.from_dict(raw_update["poll_answer"])
-            for router in self._routers:
-                if await router.async_process_poll_answer(answer):
-                    break
+            async def _route_poll(a: object) -> None:
+                for router in self._routers:
+                    if await router.async_process_poll_answer(a):
+                        break
+            if self._middleware._middlewares:
+                await self._middleware.async_run(answer, _route_poll)
+            else:
+                await _route_poll(answer)
 
         elif "pre_checkout_query" in raw_update:
             from gramix.types.payment import PreCheckoutQuery
             query = PreCheckoutQuery.from_dict(raw_update["pre_checkout_query"])
-            for router in self._routers:
-                if await router.async_process_pre_checkout_query(query):
-                    break
+            async def _route_precheckout(q: object) -> None:
+                for router in self._routers:
+                    if await router.async_process_pre_checkout_query(q):
+                        break
+            if self._middleware._middlewares:
+                await self._middleware.async_run(query, _route_precheckout)
+            else:
+                await _route_precheckout(query)
 
     def _route_message(self, msg: Message) -> None:
         if msg.successful_payment is not None:
@@ -187,6 +244,21 @@ class Dispatcher:
             if router.process_message(msg):
                 break
 
+    def _route_edited_message(self, msg: Message) -> None:
+        for router in self._routers:
+            if router.process_edited_message(msg):
+                break
+
+    def _route_channel_post(self, msg: Message) -> None:
+        for router in self._routers:
+            if router.process_channel_post(msg):
+                break
+
+    def _route_edited_channel_post(self, msg: Message) -> None:
+        for router in self._routers:
+            if router.process_edited_channel_post(msg):
+                break
+
     async def _async_route_message(self, msg: Message) -> None:
         if msg.successful_payment is not None:
             for router in self._routers:
@@ -195,6 +267,21 @@ class Dispatcher:
             return
         for router in self._routers:
             if await router.async_process_message(msg):
+                break
+
+    async def _async_route_edited_message(self, msg: Message) -> None:
+        for router in self._routers:
+            if await router.async_process_edited_message(msg):
+                break
+
+    async def _async_route_channel_post(self, msg: Message) -> None:
+        for router in self._routers:
+            if await router.async_process_channel_post(msg):
+                break
+
+    async def _async_route_edited_channel_post(self, msg: Message) -> None:
+        for router in self._routers:
+            if await router.async_process_edited_channel_post(msg):
                 break
 
     def run(
@@ -435,8 +522,8 @@ class Dispatcher:
             finally:
                 await runner.cleanup()
                 self._bot.delete_webhook()
-                self._call_handlers(self._shutdown_handlers)
-                self._bot.close()
+                await self._async_call_handlers(self._shutdown_handlers)
+                await self._bot.async_close()
                 logger.info("Webhook сервер остановлен.")
 
         asyncio.run(run())
@@ -455,8 +542,8 @@ class Dispatcher:
         async def lifespan(app: FastAPI):
             yield
             self._bot.delete_webhook()
-            self._call_handlers(self._shutdown_handlers)
-            self._bot.close()
+            await self._async_call_handlers(self._shutdown_handlers)
+            await self._bot.async_close()
             logger.info("Webhook сервер остановлен.")
 
         app = FastAPI(lifespan=lifespan)
@@ -491,7 +578,6 @@ class Dispatcher:
                             k, _, v = line.partition(":")
                             headers[k.strip().lower()] = v.strip()
 
-                    # Validate secret token if one was configured
                     if self._webhook_secret is not None:
                         incoming = headers.get("x-telegram-bot-api-secret-token", "")
                         if incoming != self._webhook_secret:
@@ -521,12 +607,19 @@ class Dispatcher:
         for handler in handlers:
             try:
                 if asyncio.iscoroutinefunction(handler):
-                    logger.warning(
-                        "Lifecycle handler '%s' is async but running in sync mode — "
-                        "используй run_async() или объяви handler как sync-функцию.",
-                        handler.__name__,
-                    )
-                    asyncio.run(handler())
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+
+                    if loop is not None and loop.is_running():
+
+                        import concurrent.futures
+                        future = asyncio.run_coroutine_threadsafe(handler(), loop)
+                        future.result(timeout=30)
+                    else:
+                        asyncio.run(handler())
                 else:
                     handler()
             except Exception:

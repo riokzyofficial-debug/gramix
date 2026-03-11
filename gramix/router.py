@@ -19,7 +19,6 @@ from gramix.types.message import Message
 
 logger = logging.getLogger(__name__)
 
-
 class Handler:
     __slots__ = ("func", "filters")
 
@@ -30,10 +29,12 @@ class Handler:
     def matches(self, update: Any) -> bool:
         return all(f.check(update) for f in self.filters)
 
-
 class Router:
     def __init__(self, storage: BaseStorage | None = None) -> None:
         self._message_handlers: list[Handler] = []
+        self._edited_message_handlers: list[Handler] = []
+        self._channel_post_handlers: list[Handler] = []
+        self._edited_channel_post_handlers: list[Handler] = []
         self._callback_handlers: list[Handler] = []
         self._inline_handlers: list[Handler] = []
         self._chat_member_handlers: list[Callable] = []
@@ -50,6 +51,36 @@ class Router:
         def decorator(func: Callable) -> Callable:
             self._message_handlers.append(Handler(func, filters))
             logger.debug("Handler: %s → %s", func.__name__, [type(f).__name__ for f in filters])
+            return func
+
+        return decorator
+
+    def edited_message(self, *args: str | BaseFilter, **kwargs: Any) -> Callable:
+        filters = self._build_message_filters(args, kwargs)
+
+        def decorator(func: Callable) -> Callable:
+            self._edited_message_handlers.append(Handler(func, filters))
+            logger.debug("EditedMessage handler: %s → %s", func.__name__, [type(f).__name__ for f in filters])
+            return func
+
+        return decorator
+
+    def channel_post(self, *args: str | BaseFilter, **kwargs: Any) -> Callable:
+        filters = self._build_message_filters(args, kwargs)
+
+        def decorator(func: Callable) -> Callable:
+            self._channel_post_handlers.append(Handler(func, filters))
+            logger.debug("ChannelPost handler: %s → %s", func.__name__, [type(f).__name__ for f in filters])
+            return func
+
+        return decorator
+
+    def edited_channel_post(self, *args: str | BaseFilter, **kwargs: Any) -> Callable:
+        filters = self._build_message_filters(args, kwargs)
+
+        def decorator(func: Callable) -> Callable:
+            self._edited_channel_post_handlers.append(Handler(func, filters))
+            logger.debug("EditedChannelPost handler: %s → %s", func.__name__, [type(f).__name__ for f in filters])
             return func
 
         return decorator
@@ -130,6 +161,27 @@ class Router:
 
         return False
 
+    def process_edited_message(self, message: Message) -> bool:
+        for handler in self._edited_message_handlers:
+            if handler.matches(message):
+                self._call(handler.func, message)
+                return True
+        return False
+
+    def process_channel_post(self, message: Message) -> bool:
+        for handler in self._channel_post_handlers:
+            if handler.matches(message):
+                self._call(handler.func, message)
+                return True
+        return False
+
+    def process_edited_channel_post(self, message: Message) -> bool:
+        for handler in self._edited_channel_post_handlers:
+            if handler.matches(message):
+                self._call(handler.func, message)
+                return True
+        return False
+
     async def async_process_message(self, message: Message) -> bool:
         user_id = message.from_user.id if message.from_user else None
 
@@ -144,6 +196,27 @@ class Router:
                 await self._async_call(handler.func, message)
                 return True
 
+        return False
+
+    async def async_process_edited_message(self, message: Message) -> bool:
+        for handler in self._edited_message_handlers:
+            if handler.matches(message):
+                await self._async_call(handler.func, message)
+                return True
+        return False
+
+    async def async_process_channel_post(self, message: Message) -> bool:
+        for handler in self._channel_post_handlers:
+            if handler.matches(message):
+                await self._async_call(handler.func, message)
+                return True
+        return False
+
+    async def async_process_edited_channel_post(self, message: Message) -> bool:
+        for handler in self._edited_channel_post_handlers:
+            if handler.matches(message):
+                await self._async_call(handler.func, message)
+                return True
         return False
 
     def process_callback(self, callback: CallbackQuery) -> bool:
@@ -258,6 +331,20 @@ class Router:
                 filters.append(CommandFilter(arg) if arg.startswith("/") else TextFilter(arg))
             elif isinstance(arg, BaseFilter):
                 filters.append(arg)
+            else:
+                raise TypeError(
+                    f"Неподдерживаемый тип фильтра: {type(arg).__name__}. "
+                    "Передавай str, BaseFilter или используй именованные аргументы: "
+                    "regex=, text=, command="
+                )
+
+        known_kwargs = {"regex", "text", "command"}
+        unknown = set(kwargs) - known_kwargs
+        if unknown:
+            raise TypeError(
+                f"Неизвестные аргументы декоратора: {', '.join(sorted(unknown))}. "
+                f"Допустимые: {', '.join(sorted(known_kwargs))}."
+            )
 
         if "regex" in kwargs:
             filters.append(RegexFilter(kwargs["regex"]))

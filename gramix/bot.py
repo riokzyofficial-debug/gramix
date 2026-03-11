@@ -19,12 +19,13 @@ from gramix.constants import (
 )
 from gramix.env import get_token
 from gramix.exceptions import FileError, NetworkError, RetryAfterError, TelegramAPIError, TokenError
-from gramix.types.keyboard import Inline, Reply, RemoveKeyboard
+from gramix.types.keyboard import Inline, Reply, RemoveKeyboard, BotCommand, ChatPermissions
 from gramix.types.message import Message
+from gramix.types.payment import LabeledPrice
 from gramix.types.user import User
+from gramix.types.game import GameHighScore
 
 logger = logging.getLogger(__name__)
-
 
 class Bot:
     def __init__(
@@ -141,7 +142,6 @@ class Bot:
         return self._me
 
     def refresh_me(self) -> User:
-        """Принудительно обновить кэш данных бота (имя/username можно менять через BotFather)."""
         self._me = User.from_dict(self._request("getMe", {}))
         return self._me
 
@@ -151,7 +151,6 @@ class Bot:
         return self._me
 
     async def async_refresh_me(self) -> User:
-        """Принудительно обновить кэш данных бота (async-версия)."""
         self._me = User.from_dict(await self._async_request("getMe", {}))
         return self._me
 
@@ -169,11 +168,12 @@ class Bot:
         if auto_split and len(text) > MAX_MESSAGE_LENGTH:
             chunks = [text[i:i + MAX_MESSAGE_LENGTH] for i in range(0, len(text), MAX_MESSAGE_LENGTH)]
             last: Message | None = None
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                is_last = i == len(chunks) - 1
                 last = self.send_message(
                     chat_id, chunk,
                     reply_to_message_id=reply_to_message_id,
-                    keyboard=keyboard,
+                    keyboard=keyboard if is_last else None,
                     parse_mode=parse_mode,
                     disable_preview=disable_preview,
                 )
@@ -205,11 +205,12 @@ class Bot:
         if auto_split and len(text) > MAX_MESSAGE_LENGTH:
             chunks = [text[i:i + MAX_MESSAGE_LENGTH] for i in range(0, len(text), MAX_MESSAGE_LENGTH)]
             last: Message | None = None
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                is_last = i == len(chunks) - 1
                 last = await self.async_send_message(
                     chat_id, chunk,
                     reply_to_message_id=reply_to_message_id,
-                    keyboard=keyboard,
+                    keyboard=keyboard if is_last else None,
                     parse_mode=parse_mode,
                     disable_preview=disable_preview,
                 )
@@ -517,14 +518,14 @@ class Bot:
         self,
         chat_id: int | str,
         user_id: int,
-        permissions: dict,
+        permissions: ChatPermissions,
         *,
         until_date: int | None = None,
     ) -> bool:
         return self._request("restrictChatMember", {
             "chat_id": chat_id,
             "user_id": user_id,
-            "permissions": permissions,
+            "permissions": permissions.to_dict() if isinstance(permissions, ChatPermissions) else permissions,
             "until_date": until_date,
         })
 
@@ -533,12 +534,12 @@ class Bot:
 
     def set_my_commands(
         self,
-        commands: list[dict],
+        commands: list[BotCommand],
         *,
         scope: dict | None = None,
     ) -> bool:
         return self._request("setMyCommands", {
-            "commands": commands,
+            "commands": [c.to_dict() if isinstance(c, BotCommand) else c for c in commands],
             "scope": scope,
         })
 
@@ -745,7 +746,7 @@ class Bot:
         payload: str,
         provider_token: str,
         currency: str,
-        prices: list,
+        prices: list[LabeledPrice],
         *,
         max_tip_amount: int | None = None,
         suggested_tip_amounts: list[int] | None = None,
@@ -854,8 +855,7 @@ class Bot:
         chat_id: int | str | None = None,
         message_id: int | None = None,
         inline_message_id: str | None = None,
-    ) -> list:
-        from gramix.types.game import GameHighScore
+    ) -> list[GameHighScore]:
         data = self._request("getGameHighScores", {
             "user_id": user_id,
             "chat_id": chat_id,
